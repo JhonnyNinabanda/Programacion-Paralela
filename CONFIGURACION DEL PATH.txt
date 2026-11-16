@@ -1,0 +1,2 @@
+CONFIGURACION DEL PATH
+> set PATH=C:/tools/mingw64/bin;%PATH%

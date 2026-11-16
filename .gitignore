@@ -1,0 +1,30 @@
+# Build C++
+build/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# VS Code
+.vscode/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+
+# Java build
+out/
+target/
+
+# DLL compiladas
+*.dll
+*.dll.a
+*.exe
+
+# Logs
+*.log
