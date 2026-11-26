@@ -1,8 +1,7 @@
 #include "fractal-serial.h"
-#include "palette.h"
+#include "palette.h" //acceso a la paleta de colores
 
 #include <complex>
-#include <cmath>
 #include <cstdint>
 
 

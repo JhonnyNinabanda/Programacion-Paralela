@@ -3,12 +3,16 @@
 #include <fmt/format.h>
 #include <SFML/Graphics.hpp>
 #include <cmath> //Libreria en <> archivo del sistema
-#include "fractal-serial.h" //Comillas para buscar archivo en el proyecto
+#include <omp.h>
+
+// Proviene de nuestro proyecto
+#include "fractal-serial.h" 
 #include "fractal-simd.h"
+#include "fractal-openmp.h"
 
 int max_iteraciones = 15;
 
-//Ejes de coordenadas
+// Parámetros: límites del rectángulo complejo que vamos a muestrear
 double x_min = -1.5;
 double x_max = 1.5;
 double y_min = -1.5;
@@ -18,17 +22,33 @@ double y_max = 1.5;
 #define WIDTH 1660
 #define HEIGHT 900
 
-//Imagen / textura
+// Buffer de píxeles (RGBA empaquetado en uint32_t). Se inicializa en main.
 uint32_t* buffer = nullptr;
 
 enum class runtime_type {
-    SERIAL_1,
+    SERIAL_1 = 0,
     SERIAL_2,
-    SIMD
+    SIMD,
+    OPEN_MP_REGIONES,
+    OPEN_MP_FOR
+
 };
+
+int thread_count = 0;
 
 
 int main () {
+
+    #pragma omp parallel
+    {
+        #pragma omp master
+        {
+            thread_count = omp_get_num_threads();
+            std::cout << "Hola desde el hilo " << omp_get_thread_num() << " de " << thread_count << " hilos." << std::endl;
+
+        }
+    }
+
     buffer = new uint32_t[WIDTH*HEIGHT];
 
     runtime_type r_type = runtime_type::SERIAL_1;
@@ -41,6 +61,7 @@ int main () {
     );
 
     sf::Texture texture({WIDTH, HEIGHT});
+    texture.update((const uint8_t *)buffer);
     sf::Sprite sprite(texture);
 
     const sf::Font font("ARIAL.TTF");
@@ -48,8 +69,9 @@ int main () {
     sf::Text text(font, "Hello SFML", 40);
     text.setFillColor(sf::Color::Blue);
     text.setPosition({20.f, 20.f});
+    text.setStyle(sf::Text::Bold);
 
-    std::string options = "[1] Serial_1 | [2] Serial_2 | [3] SIMD | Up/Down: Iteraciones";
+    std::string options = "[1] Serial_1 | [2] Serial_2 | [3] SIMD | [4] OpenMP Regiones | [5] OpenMP For | Up/Down: Iteraciones";
     sf::Text text_options(font, options, 20);
     text_options.setFillColor(sf::Color::Blue);
     text_options.setPosition({10, window.getView().getSize().y -40});
@@ -86,6 +108,12 @@ int main () {
                         case sf::Keyboard::Scan::Num3:
                             r_type = runtime_type::SIMD;
                         break; 
+                        case sf::Keyboard::Scan::Num4:
+                            r_type = runtime_type::OPEN_MP_REGIONES;
+                        break; 
+                        case sf::Keyboard::Scan::Num5:
+                            r_type = runtime_type::OPEN_MP_FOR;
+                        break; 
                         default:
                         break;    
                         
@@ -111,6 +139,14 @@ int main () {
         else if(r_type == runtime_type::SIMD){
             mode = "Julia SIMD";
             julia_simd(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, buffer);
+        }
+        else if(r_type == runtime_type::OPEN_MP_REGIONES){
+            mode = fmt::format("OPENMP REGIONES - Threads: {}", thread_count);
+            julia_openmp_regiones(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, buffer);
+        }
+        else if(r_type == runtime_type::OPEN_MP_FOR){
+            mode = fmt::format("OPENMP FOR - Threads: {}", thread_count);
+            julia_openmp_for(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, buffer);
         }
 
         texture.update((const uint8_t*)buffer);

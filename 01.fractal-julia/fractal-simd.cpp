@@ -12,9 +12,11 @@ void julia_simd(double x_min, double y_min, double x_max, double y_max,
                 uint32_t *pixel_buffer)
 {
 
+     // Paso entre píxeles en coordenadas complejas
     double dx = (x_max - x_min) / width;
     double dy = (y_max - y_min) / height;
 
+    // vamos a repetir 8 veces los valores para trabajar con 8 floats a la vez
     //(x_min,x_min,x_min,x_min,x_min,x_min,x_min,x_min)
     __m256 xmin = _mm256_set1_ps(x_min);
     //(y_max,y_max,y_max,y_max,y_max,y_max,y_max,y_max)
@@ -23,15 +25,17 @@ void julia_simd(double x_min, double y_min, double x_max, double y_max,
     __m256 xscale = _mm256_set1_ps(dx); // (dx,dx,dx,dx,dx,dx,dx,dx)
     __m256 yscale = _mm256_set1_ps(dy); // (dy,dy,dy,dy,dy,dy,dy,dy)
 
-    __m256 c_real = _mm256_set1_ps(c.real()); 
-    __m256 c_imag = _mm256_set1_ps(c.imag());
+    __m256 c_real = _mm256_set1_ps(c.real()); //constante c real (cr,cr,cr,cr,cr,cr,cr,cr)
+    __m256 c_imag = _mm256_set1_ps(c.imag()); // constante c imaginaria (ci,ci,ci,ci,ci,ci,ci,ci)
 
+    // debemos comparar que la norma sea menor a 4.0 de lo contrario diverge y salimos del ciclo
     __m256 max_norma = _mm256_set1_ps(4.0);
 
-    __m256 one = _mm256_set1_ps(1.0);
+    // para comaprar que todos los valores hayan diverigdo dento del ciclo while
+    __m256 one = _mm256_set1_ps(1.0); // (1,1,1,1,1,1,1,1)
 
-    for (int i = 0; i < width; i++){
-        for (int j = 0; j < height; j += 8){
+    for (int i = 0; i < width; i++){ //procesamos 1
+        for (int j = 0; j < height; j += 8){ //procesamos 8
 
             __m256 mx = _mm256_set1_ps(i); // (i,i,i,i,i,i,i,i)
             __m256 my = _mm256_setr_ps(j, j+1, j+2, j+3, j+4, j+5, j+6, j+7);
@@ -44,6 +48,7 @@ void julia_simd(double x_min, double y_min, double x_max, double y_max,
             // verificar si los 8 complejos estan acotados
             int iter = 0;
 
+            // mk es el nuemro de interaciones que cada componente ha permanecido dentro del umbral
             //(iter,iter,iter, .....8)
             __m256 mk = _mm256_set1_ps(iter);
 
@@ -52,7 +57,7 @@ void julia_simd(double x_min, double y_min, double x_max, double y_max,
 
             while(iter < max_iteraciones ){
 
-                // Zn+1 = Zn^2 + c
+                // Calcular Zn+1 = Zn^2 + c
                 __m256 zr2 = _mm256_mul_ps(zr, zr);
                 __m256 zi2 = _mm256_mul_ps(zi, zi);
                 __m256 zrzi = _mm256_mul_ps(zr, zi);
@@ -62,11 +67,11 @@ void julia_simd(double x_min, double y_min, double x_max, double y_max,
                 // 2*zr*zi + c_imag
                 zi = _mm256_add_ps(_mm256_add_ps(zrzi, zrzi), c_imag);
 
-                // normas
+                // calcular la norma |z|^2 = zr^2 + zi^2
                 zr2 = _mm256_mul_ps(zr, zr); // zr^2
                 zi2 = _mm256_mul_ps(zi, zi); // zi^2
 
-                __m256 norma2 = _mm256_add_ps(zr2, zi2);
+                __m256 norma2 = _mm256_add_ps(zr2, zi2); // |z|^2 = zr^2 + zi^2
                 
                 // si norma2<4 devuelve 0xFFFFFFFF, sino 0X000000
                 __m256 mask = _mm256_cmp_ps(norma2, max_norma, _CMP_LE_OQ);
